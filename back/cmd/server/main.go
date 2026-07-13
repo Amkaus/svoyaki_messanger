@@ -29,6 +29,8 @@ func main() {
 
  mux.HandleFunc("/register", handlers.Register(db))
  mux.HandleFunc("/login", handlers.Login(db))
+ mux.HandleFunc("/chats", middleware.AuthMiddleware(handlers.GetChats(db)))
+ mux.HandleFunc("/ws", middleware.AuthMiddleware(handlers.Subscribe()))
 
  protectedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
   userID := r.Context().Value("user_id")
