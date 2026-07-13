@@ -69,3 +69,21 @@ func GetHistory(db *sql.DB) http.HandlerFunc {
 		json.NewEncoder(w).Encode(messages)
 	}
 }
+func SaveMessage(db *sql.DB, chatID, senderID int, content string) (MessageResponse, error) {
+	var msg MessageResponse
+	
+	query := `
+		INSERT INTO messages (chat_id, sender_id, content) 
+		VALUES ($1, $2, $3) 
+		RETURNING id, sender_id, content, created_at
+	`
+	err := db.QueryRow(query, chatID, senderID, content).Scan(
+		&msg.ID, &msg.SenderID, &msg.Content, &msg.CreatedAt,
+	)
+	
+	if err != nil {
+		return msg, err
+	}
+	
+	return msg, nil
+}

@@ -31,6 +31,10 @@ func main() {
  mux.HandleFunc("/login", handlers.Login(db))
  mux.HandleFunc("/chats", middleware.AuthMiddleware(handlers.GetChats(db)))
  mux.HandleFunc("/ws", middleware.AuthMiddleware(handlers.Subscribe()))
+ mux.HandleFunc("/chats/create", middleware.AuthMiddleware(handlers.CreateChat(db)))
+ mux.HandleFunc("/chats/add_member", middleware.AuthMiddleware(handlers.AddMember(db)))
+ mux.HandleFunc("/messages/history", middleware.AuthMiddleware(handlers.GetHistory(db)))
+ mux.HandleFunc("/messages/search", middleware.AuthMiddleware(handlers.Search(db)))
 
  protectedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
   userID := r.Context().Value("user_id")
