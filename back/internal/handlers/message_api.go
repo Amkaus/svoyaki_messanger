@@ -87,3 +87,47 @@ func SaveMessage(db *sql.DB, chatID, senderID int, content string) (MessageRespo
 	
 	return msg, nil
 }
+
+type RemoveMemberReq struct {
+	ChatID int `json:"chat_id"`
+	UserID int `json:"user_id"`
+}
+
+func RemoveMember(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		adminID := int(r.Context().Value("user_id").(float64))
+		var req RemoveMemberReq
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+			return
+		}
+
+		var isAdmin bool
+		err := db.QueryRow(`SELECT is_admin FROM chat_members WHERE chat_id = $1 AND user_id = $2`, req.ChatID, adminID).Scan(&isAdmin)
+		
+		if err != nil || !isAdmin {
+			http.Error(w, "У вас нет прав администратора для удаления участников", http.StatusForbidden)
+			return
+		}
+		if adminID == req.UserID {
+			http.Error(w, "Нельзя удалить самого себя", http.StatusBadRequest)
+			return
+		}
+
+		result, err := db.Exec(`DELETE FROM chat_members WHERE chat_id = $1 AND user_id = $2`, req.ChatID, req.UserID)
+		if err != nil {
+			http.Error(w, "Ошибка при удалении участника", http.StatusInternalServerError)
+			return
+		}
+
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected == 0 {
+			http.Error(w, "Пользователь не найден в этом чате", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"message": "Пользователь успешно удален из чата"}`))
+	}
+}
