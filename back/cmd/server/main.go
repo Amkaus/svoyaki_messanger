@@ -30,7 +30,7 @@ func main() {
  mux.HandleFunc("/register", handlers.Register(db))
  mux.HandleFunc("/login", handlers.Login(db))
  mux.HandleFunc("/chats", middleware.AuthMiddleware(handlers.GetChats(db)))
- mux.HandleFunc("/ws", middleware.AuthMiddleware(handlers.Subscribe()))
+ mux.HandleFunc("/ws", middleware.AuthMiddleware(handlers.Subscribe(db)))
  mux.HandleFunc("/chats/create", middleware.AuthMiddleware(handlers.CreateChat(db)))
  mux.HandleFunc("/chats/add_member", middleware.AuthMiddleware(handlers.AddMember(db)))
  mux.HandleFunc("/messages/history", middleware.AuthMiddleware(handlers.GetHistory(db)))
