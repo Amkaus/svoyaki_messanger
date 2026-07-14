@@ -14,9 +14,12 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-type IncomingMessage struct {
-	ChatID int    `json:"chat_id"`
-	Text   string `json:"text"`
+type IncomingEvent struct {
+ Type        string `json:"type"`          
+ ChatID      int    `json:"chat_id"`       
+ Text        string `json:"text"`          
+ ClientMsgID string `json:"client_msg_id"`
+ MessageID   int    `json:"message_id"`
 }
 
 var (
@@ -25,50 +28,60 @@ var (
 )
 
 func Subscribe(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID := int(r.Context().Value("user_id").(float64))
-		conn, err := upgrader.Upgrade(w, r, nil)
+ return func(w http.ResponseWriter, r *http.Request) {
+  userID := int(r.Context().Value("user_id").(float64))
+  conn, err := upgrader.Upgrade(w, r, nil)
 
-		if err != nil {
-			log.Println("Ошибка WS:", err)
-			return
-		}
+  if err != nil {
+   return
+  }
 
-		clientsMu.Lock()
-		clients[conn] = userID
-		clientsMu.Unlock()
-		defer func() {
-			clientsMu.Lock()
-			delete(clients, conn)
-			clientsMu.Unlock()
-			conn.Close()
-		}()
+  clientsMu.Lock()
+  clients[conn] = userID
+  clientsMu.Unlock()
+  defer func() {
+   clientsMu.Lock()
+   delete(clients, conn)
+   clientsMu.Unlock()
+   conn.Close()
+  }()
 
-		for {
-			var incMsg IncomingMessage
-			err := conn.ReadJSON(&incMsg)
+  for {
+   var event IncomingEvent
+   if err := conn.ReadJSON(&event); err != nil {
+    break
+   }
 
-			if err != nil {
-				break 
-			}
-			savedMsg, err := SaveMessage(db, incMsg.ChatID, userID, incMsg.Text)
+   switch event.Type {
+   case "send":
+    savedMsg, err := SaveMessage(db, event.ChatID, userID, event.Text, event.ClientMsgID)
 
-			if err != nil {
-				log.Println("Не удалось сохранить сообщение:", err)
-				continue
-			}
-			clientsMu.Lock()
-
-			for clientConn := range clients {
-				err := clientConn.WriteJSON(savedMsg)
-				
-				if err != nil {
-					clientConn.Close()
-					delete(clients, clientConn)
-				}
-			}
-			clientsMu.Unlock()
-		}
-	}
+    if err != nil {
+     log.Println("Ошибка сохранения:", err)
+     continue
+    }
+    broadcastEvent := map[string]interface{}{
+     "type":    "message",
+     "message": savedMsg,
+    }
+    broadcast(broadcastEvent)
+   case "read":
+    db.Exec(`INSERT INTO message_reads (message_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, event.MessageID, userID)
+    broadcastEvent := map[string]interface{}{
+     "type":       "read_receipt",
+     "message_id": event.MessageID,
+     "user_id":    userID,
+    }
+    broadcast(broadcastEvent)
+   }
+  }
+ }
 }
 
+func broadcast(data interface{}) {
+ clientsMu.Lock()
+ defer clientsMu.Unlock()
+ for clientConn := range clients {
+  clientConn.WriteJSON(data)
+ }
+}
