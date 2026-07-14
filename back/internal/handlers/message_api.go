@@ -69,16 +69,24 @@ func GetHistory(db *sql.DB) http.HandlerFunc {
 		json.NewEncoder(w).Encode(messages)
 	}
 }
-func SaveMessage(db *sql.DB, chatID, senderID int, content string) (MessageResponse, error) {
+type MessageResponse struct {
+	ID          int    `json:"id"`
+	SenderID    int    `json:"sender_id"`
+	Content     string `json:"content"`
+	CreatedAt   string `json:"created_at"`
+	ClientMsgID string `json:"client_msg_id,omitempty"`
+}
+func SaveMessage(db *sql.DB, chatID, senderID int, content string, clientMsgID string) (MessageResponse, error) {
 	var msg MessageResponse
 	
 	query := `
-		INSERT INTO messages (chat_id, sender_id, content) 
-		VALUES ($1, $2, $3) 
-		RETURNING id, sender_id, content, created_at
+		INSERT INTO messages (chat_id, sender_id, content, client_msg_id) 
+		VALUES ($1, $2, $3, $4) 
+		ON CONFLICT (client_msg_id) DO UPDATE SET chat_id = EXCLUDED.chat_id
+		RETURNING id, sender_id, content, created_at, client_msg_id
 	`
-	err := db.QueryRow(query, chatID, senderID, content).Scan(
-		&msg.ID, &msg.SenderID, &msg.Content, &msg.CreatedAt,
+	err := db.QueryRow(query, chatID, senderID, content, clientMsgID).Scan(
+		&msg.ID, &msg.SenderID, &msg.Content, &msg.CreatedAt, &msg.ClientMsgID,
 	)
 	
 	if err != nil {
