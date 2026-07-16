@@ -36,6 +36,8 @@ func main() {
  mux.HandleFunc("/chats/remove_member", middleware.AuthMiddleware(handlers.RemoveMember(db)))
  mux.HandleFunc("/messages/history", middleware.AuthMiddleware(handlers.GetHistory(db)))
  mux.HandleFunc("/messages/search", middleware.AuthMiddleware(handlers.Search(db)))
+ mux.Handle("/", http.FileServer(http.Dir("./front")))
+ mux.HandleFunc("/messages/read-all", middleware.AuthMiddleware(handlers.MarkChatAsRead(db)))
 
  protectedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
   userID := r.Context().Value("user_id")

@@ -8,74 +8,84 @@ import (
 
 type AddMemberReq struct {
 	ChatID     int `json:"chat_id"`
-	NewUserID  int `json:"new_user_id"`
+	Username string `json:"username"`
 }
 
 func AddMember(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		adminID := int(r.Context().Value("user_id").(float64))
-		var req AddMemberReq
-		json.NewDecoder(r.Body).Decode(&req)
-		var isAdmin bool
+    return func(w http.ResponseWriter, r *http.Request) {
+        adminID := int(r.Context().Value("user_id").(float64))
+        var req AddMemberReq
+        
+        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+            http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+            return
+        }
 
-		err := db.QueryRow(`SELECT is_admin FROM chat_members WHERE chat_id = $1 AND user_id = $2`, req.ChatID, adminID).Scan(&isAdmin)
-		if err != nil || !isAdmin {
-			http.Error(w, "У вас нет прав администратора в этом чате", http.StatusForbidden)
-			return
-		}
+        var isAdmin bool
+        err := db.QueryRow(`SELECT is_admin FROM chat_members WHERE chat_id = $1 AND user_id = $2`, req.ChatID, adminID).Scan(&isAdmin)
+        if err != nil || !isAdmin {
+            http.Error(w, "У вас нет прав администратора в этом чате", http.StatusForbidden)
+            return
+        }
 
-		_, err = db.Exec(`INSERT INTO chat_members (chat_id, user_id) VALUES ($1, $2)`, req.ChatID, req.NewUserID)
-		if err != nil {
-			http.Error(w, "Ошибка добавления (возможно, он уже в чате)", http.StatusInternalServerError)
-			return
-		}
-		w.Write([]byte(`{"message": "Пользователь успешно добавлен"}`))
-	}
+        var newUserID int
+        err = db.QueryRow(`SELECT id FROM users WHERE username = $1`, req.Username).Scan(&newUserID)
+        if err != nil {
+            if err == sql.ErrNoRows {
+                http.Error(w, "Пользователь с таким логином не найден", http.StatusNotFound)
+            } else {
+                http.Error(w, "Ошибка базы данных", http.StatusInternalServerError)
+            }
+            return
+        }
+
+        _, err = db.Exec(`INSERT INTO chat_members (chat_id, user_id) VALUES ($1, $2)`, req.ChatID, newUserID)
+        if err != nil {
+            http.Error(w, "Ошибка добавления (возможно, он уже в чате)", http.StatusInternalServerError)
+            return
+        }
+        w.Write([]byte(`{"message": "Пользователь успешно добавлен"}`))
+    }
 }
 
 func GetHistory(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		chatID := r.URL.Query().Get("chat_id")
-		lastID := r.URL.Query().Get("last_id") 
+    return func(w http.ResponseWriter, r *http.Request) {
+        chatID := r.URL.Query().Get("chat_id")
+        lastID := r.URL.Query().Get("last_id") 
 
-		if lastID == "" {
-			lastID = "999999999"
-		}
-		
-		query := `
-			SELECT id, sender_id, content, created_at 
-			FROM messages 
-			WHERE chat_id = $1 AND id < $2 
-			ORDER BY id DESC LIMIT 50
-		`
-		rows, err := db.Query(query, chatID, lastID)
-		if err != nil {
-			http.Error(w, "Ошибка получения истории", http.StatusInternalServerError)
-			return
-		}
-		defer rows.Close()
+        if lastID == "" {
+            lastID = "999999999"
+        }
+        
+        query := `
+            SELECT m.id, m.sender_id, m.content, m.created_at,
+                   EXISTS(SELECT 1 FROM message_reads mr WHERE mr.message_id = m.id AND mr.user_id != m.sender_id) AS is_read
+            FROM messages m 
+            WHERE m.chat_id = $1 AND m.id < $2 
+            ORDER BY m.id DESC LIMIT 50
+        `
+        rows, err := db.Query(query, chatID, lastID)
+        if err != nil {
+            http.Error(w, "Ошибка получения истории", http.StatusInternalServerError)
+            return
+        }
+        defer rows.Close()
 
-		var messages []MessageResponse 
-		for rows.Next() {
-			var msg MessageResponse
-			rows.Scan(&msg.ID, &msg.SenderID, &msg.Content, &msg.CreatedAt)
-			messages = append(messages, msg)
-		}
+        var messages []MessageResponse 
+        for rows.Next() {
+            var msg MessageResponse
+            rows.Scan(&msg.ID, &msg.SenderID, &msg.Content, &msg.CreatedAt, &msg.IsRead)
+            messages = append(messages, msg)
+        }
 
-		if messages == nil {
-			messages = []MessageResponse{}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(messages)
-	}
+        if messages == nil {
+            messages = []MessageResponse{}
+        }
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(messages)
+    }
 }
-type MessageResponse struct {
-	ID          int    `json:"id"`
-	SenderID    int    `json:"sender_id"`
-	Content     string `json:"content"`
-	CreatedAt   string `json:"created_at"`
-	ClientMsgID string `json:"client_msg_id,omitempty"`
-}
+
 func SaveMessage(db *sql.DB, chatID, senderID int, content string, clientMsgID string) (MessageResponse, error) {
 	var msg MessageResponse
 	
@@ -98,7 +108,7 @@ func SaveMessage(db *sql.DB, chatID, senderID int, content string, clientMsgID s
 
 type RemoveMemberReq struct {
 	ChatID int `json:"chat_id"`
-	UserID int `json:"user_id"`
+	Username string `json:"username"`
 }
 
 func RemoveMember(db *sql.DB) http.HandlerFunc {
@@ -118,12 +128,23 @@ func RemoveMember(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "У вас нет прав администратора для удаления участников", http.StatusForbidden)
 			return
 		}
-		if adminID == req.UserID {
-			http.Error(w, "Нельзя удалить самого себя", http.StatusBadRequest)
-			return
-		}
+		var targetUserID int
+        err = db.QueryRow(`SELECT id FROM users WHERE username = $1`, req.Username).Scan(&targetUserID)
+        if err != nil {
+            if err == sql.ErrNoRows {
+                http.Error(w, "Пользователь с таким логином не найден", http.StatusNotFound)
+            } else {
+                http.Error(w, "Ошибка базы данных", http.StatusInternalServerError)
+            }
+            return
+        }
 
-		result, err := db.Exec(`DELETE FROM chat_members WHERE chat_id = $1 AND user_id = $2`, req.ChatID, req.UserID)
+        if adminID == targetUserID {
+            http.Error(w, "Нельзя удалить самого себя", http.StatusBadRequest)
+            return
+        }
+
+		result, err := db.Exec(`DELETE FROM chat_members WHERE chat_id = $1 AND user_id = $2`, req.ChatID, targetUserID)
 		if err != nil {
 			http.Error(w, "Ошибка при удалении участника", http.StatusInternalServerError)
 			return
