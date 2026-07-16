@@ -90,13 +90,13 @@ func SaveMessage(db *sql.DB, chatID, senderID int, content string, clientMsgID s
 	var msg MessageResponse
 	
 	query := `
-		INSERT INTO messages (chat_id, sender_id, content, client_msg_id) 
-		VALUES ($1, $2, $3, $4) 
-		ON CONFLICT (client_msg_id) DO UPDATE SET chat_id = EXCLUDED.chat_id
-		RETURNING id, sender_id, content, created_at, client_msg_id
-	`
+        INSERT INTO messages (chat_id, sender_id, content, client_msg_id) 
+        VALUES ($1, $2, $3, $4) 
+        ON CONFLICT (client_msg_id) DO UPDATE SET chat_id = EXCLUDED.chat_id
+        RETURNING id, chat_id, sender_id, content, created_at, client_msg_id
+    `
 	err := db.QueryRow(query, chatID, senderID, content, clientMsgID).Scan(
-		&msg.ID, &msg.SenderID, &msg.Content, &msg.CreatedAt, &msg.ClientMsgID,
+		&msg.ID, &msg.ChatID, &msg.SenderID, &msg.Content, &msg.CreatedAt, &msg.ClientMsgID,
 	)
 	
 	if err != nil {

@@ -188,6 +188,10 @@ function connectWebSocket() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
+    if (socket) {
+        socket.close();
+    }
+
     socket = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
 
     socket.onopen = () => {
@@ -196,22 +200,32 @@ function connectWebSocket() {
 
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log("Входящее событие WS:", data);
+        console.log("Входящее событие WS:", data); 
 
-        if (data.type === "message") {
-            displayMessage(data.message);
-            
-            const myUserId = getMyUserId();
-            if (data.message.sender_id !== myUserId) {
-                markAsRead(data.message.id);
-            }
-        } 
-        else if (data.type === "read_receipt") {
+        if (data.type === "read_receipt" || data.type === "read") {
             updateCheckmarks(data.message_id);
+            return;
         }
-        else if (data.message || data.text) {
-            const msg = data.message || data;
-            displayMessage(msg);
+
+        let msg = null;
+        if (data.type === "message" && data.message) {
+            msg = data.message;
+        } else if (data.chat_id) {
+            msg = data;
+        }
+
+        if (msg) {
+            if (String(msg.chat_id) === String(currentChatId)) {
+                
+                const myUserId = getMyUserId();
+                
+                if (String(msg.sender_id) !== String(myUserId)) {
+                    displayMessage(msg);
+                    markAsRead(msg.id);
+                }
+            } else {
+                console.log("Сообщение пришло для другого чата:", msg.chat_id, "А мы сидим в:", currentChatId);
+            }
         }
     };
 
@@ -226,16 +240,29 @@ function sendMessage() {
 
     if (!text || !currentChatId) return;
 
+    const msgId = crypto.randomUUID(); 
+
     const messageData = {
         type: "send",
         chat_id: currentChatId,
         text: text,
-        client_msg_id: crypto.randomUUID() 
+        client_msg_id: msgId
     };
 
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(messageData));
         input.value = ''; 
+        
+        const localMsg = {
+            id: msgId, 
+            chat_id: currentChatId,
+            sender_id: getMyUserId(),
+            content: text,
+            created_at: new Date().toISOString(), 
+            is_read: false
+        };
+        displayMessage(localMsg);
+        
     } else {
         alert("Нет подключения к серверу. Проверьте консоль.");
     }
@@ -447,7 +474,12 @@ function markAsRead(msgId) {
 
 function updateCheckmarks(msgId) {
     const metaSpan = document.getElementById(`meta-${msgId}`);
-    if (metaSpan && metaSpan.innerText.includes("✓")) {
+    
+    if (!metaSpan) {
+        return; 
+    }
+
+    if (!metaSpan.innerText.includes("✓✓")) {
         metaSpan.innerText = metaSpan.innerText.replace("✓", "✓✓");
     }
 }
