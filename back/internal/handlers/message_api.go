@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+    "log"
 )
 
 type AddMemberReq struct {
@@ -58,9 +59,10 @@ func GetHistory(db *sql.DB) http.HandlerFunc {
         }
         
         query := `
-            SELECT m.id, m.sender_id, m.content, m.created_at,
+            SELECT m.id, m.sender_id, u.username, m.content, m.created_at,
                    EXISTS(SELECT 1 FROM message_reads mr WHERE mr.message_id = m.id AND mr.user_id != m.sender_id) AS is_read
             FROM messages m 
+            JOIN users u ON m.sender_id = u.id
             WHERE m.chat_id = $1 AND m.id < $2 
             ORDER BY m.id DESC LIMIT 50
         `
@@ -74,7 +76,11 @@ func GetHistory(db *sql.DB) http.HandlerFunc {
         var messages []MessageResponse 
         for rows.Next() {
             var msg MessageResponse
-            rows.Scan(&msg.ID, &msg.SenderID, &msg.Content, &msg.CreatedAt, &msg.IsRead)
+            err := rows.Scan(&msg.ID, &msg.SenderID, &msg.SenderName, &msg.Content, &msg.CreatedAt, &msg.IsRead)
+            if err != nil {
+                log.Println("Ошибка при сканировании строки:", err)
+                continue
+            }
             messages = append(messages, msg)
         }
 

@@ -47,6 +47,7 @@ type MessageResponse struct {
 	ID        int    `json:"id"`
 	ChatID    int    `json:"chat_id"`
 	SenderID  int    `json:"sender_id"`
+	SenderName  string    `json:"sender_name"`
 	Content   string `json:"content"`
 	CreatedAt string `json:"created_at"`
 	ClientMsgID string `json:"client_msg_id,omitempty"`

@@ -276,13 +276,12 @@ function displayMessage(msg) {
     }
 
     const myUserId = getMyUserId();
-    const isMyMsg = msg.sender_id === myUserId;
+    const isMyMsg = String(msg.sender_id) === String(myUserId); 
 
     const msgWrapper = document.createElement('div');
     msgWrapper.style.display = "flex";
     msgWrapper.style.width = "100%";
     msgWrapper.style.marginBottom = "10px";
-    
     msgWrapper.style.justifyContent = isMyMsg ? "flex-end" : "flex-start";
 
     const msgBubble = document.createElement('div');
@@ -291,6 +290,8 @@ function displayMessage(msg) {
     msgBubble.style.maxWidth = "70%"; 
     msgBubble.style.boxShadow = "0 1px 2px rgba(0,0,0,0.1)";
     msgBubble.style.wordBreak = "break-word";
+    msgBubble.style.display = "flex"; 
+    msgBubble.style.flexDirection = "column"; 
     
     if (isMyMsg) {
         msgBubble.style.background = "#dcf8c6"; 
@@ -298,6 +299,16 @@ function displayMessage(msg) {
     } else {
         msgBubble.style.background = "white"; 
         msgBubble.style.borderBottomLeftRadius = "2px";
+    }
+
+    if (!isMyMsg) {
+        const nameLabel = document.createElement('div');
+        nameLabel.style.fontSize = "10px";
+        nameLabel.style.fontWeight = "bold";
+        nameLabel.style.color = "#555";
+        nameLabel.style.marginBottom = "4px";
+        nameLabel.innerText = msg.sender_name || "User " + msg.sender_id; 
+        msgBubble.appendChild(nameLabel);
     }
 
     const textSpan = document.createElement('span');
@@ -308,9 +319,8 @@ function displayMessage(msg) {
     if (msg.id) metaSpan.id = `meta-${msg.id}`;
     metaSpan.style.fontSize = "10px";
     metaSpan.style.color = isMyMsg ? "#4fc3f7" : "#999"; 
-    metaSpan.style.marginLeft = "12px";
-    metaSpan.style.float = "right"; 
-    metaSpan.style.marginTop = "8px";
+    metaSpan.style.textAlign = "right"; 
+    metaSpan.style.marginTop = "4px";
 
     let timeString = "";
     if (msg.created_at) {
@@ -329,10 +339,8 @@ function displayMessage(msg) {
     msgWrapper.appendChild(msgBubble);
     container.appendChild(msgWrapper);
     
-  
     container.scrollTop = container.scrollHeight;
 }
-
 async function loadChatHistory(chatId) {
     const token = localStorage.getItem('token');
     try {
