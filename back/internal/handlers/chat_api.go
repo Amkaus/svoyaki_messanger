@@ -59,11 +59,12 @@ func Search(db *sql.DB) http.HandlerFunc {
 		chatID := r.URL.Query().Get("chat_id")
 		searchText := r.URL.Query().Get("text")
 		query := `
-			SELECT id, sender_id, content, created_at 
-			FROM messages 
-			WHERE chat_id = $1 AND content ILIKE $2
-			ORDER BY created_at DESC
-		`		
+            SELECT m.id, m.sender_id, u.username, m.content, m.created_at 
+            FROM messages m
+            JOIN users u ON m.sender_id = u.id
+            WHERE m.chat_id = $1 AND m.content ILIKE $2
+            ORDER BY m.created_at DESC
+        `	
 		rows, err := db.Query(query, chatID, "%"+searchText+"%")
 		if err != nil {
 			http.Error(w, "Ошибка поиска", http.StatusInternalServerError)
@@ -74,7 +75,7 @@ func Search(db *sql.DB) http.HandlerFunc {
 		var messages []MessageResponse
 		for rows.Next() {
 			var msg MessageResponse
-			rows.Scan(&msg.ID, &msg.SenderID, &msg.Content, &msg.CreatedAt)
+			rows.Scan(&msg.ID, &msg.SenderID, &msg.SenderName, &msg.Content, &msg.CreatedAt)
 			messages = append(messages, msg)
 		}
 
