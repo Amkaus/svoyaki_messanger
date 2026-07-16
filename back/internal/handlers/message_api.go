@@ -99,10 +99,10 @@ func SaveMessage(db *sql.DB, chatID, senderID int, content string, clientMsgID s
         INSERT INTO messages (chat_id, sender_id, content, client_msg_id) 
         VALUES ($1, $2, $3, $4) 
         ON CONFLICT (client_msg_id) DO UPDATE SET chat_id = EXCLUDED.chat_id
-        RETURNING id, chat_id, sender_id, content, created_at, client_msg_id
+        RETURNING id, chat_id, sender_id, (SELECT username FROM users WHERE id = $2), content, created_at, client_msg_id
     `
 	err := db.QueryRow(query, chatID, senderID, content, clientMsgID).Scan(
-		&msg.ID, &msg.ChatID, &msg.SenderID, &msg.Content, &msg.CreatedAt, &msg.ClientMsgID,
+		&msg.ID, &msg.ChatID, &msg.SenderID, &msg.SenderName, &msg.Content, &msg.CreatedAt, &msg.ClientMsgID,
 	)
 	
 	if err != nil {
