@@ -48,6 +48,8 @@ type MessageResponse struct {
 	SenderID  int    `json:"sender_id"`
 	Content   string `json:"content"`
 	CreatedAt string `json:"created_at"`
+	ClientMsgID string `json:"client_msg_id,omitempty"`
+	IsRead      bool   `json:"is_read"`
 }
 
 func Search(db *sql.DB) http.HandlerFunc {
@@ -80,4 +82,19 @@ func Search(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(messages)
 	}
+}
+func MarkChatAsRead(db *sql.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        userID := int(r.Context().Value("user_id").(float64))
+        chatID := r.URL.Query().Get("chat_id")
+
+        query := `
+            INSERT INTO message_reads (message_id, user_id)
+            SELECT id, $1 FROM messages 
+            WHERE chat_id = $2 AND sender_id != $1
+            ON CONFLICT DO NOTHING`
+        
+        db.Exec(query, userID, chatID)
+        w.WriteHeader(http.StatusOK)
+    }
 }

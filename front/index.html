@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Svoyaki Messenger</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id = "auth-screen" class="screen">
+        <div class="auth-box">
+            <h2>Вход в Svoyaki</h2>
+            <input type="text" id="username" placeholder="Имя пользователя">
+            <input type="password" id="password" placeholder="Пароль">
+            <div class="auth-buttons">
+                <button onclick="login()">Войти</button>
+                <button onclick="register()" class="outline">Регистрация</button>
+            </div>
+            <p id="auth-error" class="error-text"></p>
+
+        </div>
+    </div>
+
+    <div id="chat-screen" class="screen hidden">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3>Мои чаты</h3>
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="createNewChat()" style="padding: 5px 10px; font-size: 12px; background-color: #28a745;">+ Чат</button>
+                    <button onclick="logout()" style="padding: 5px 10px; font-size: 12px; background-color: #dc3545;">Выход</button>
+                </div>
+            </div>
+            <ul id="chat-list">
+            </ul>
+        </div>
+        <div class="chat-area">
+            <div class="chat-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 id="current-chat-name">Выберите чат</h3>
+                <div style="display: flex; gap: 5px;">
+                    <button id="add-user-btn" class="hidden" onclick="addUserToChat()" style="padding: 5px 10px; font-size: 12px; background-color: #0088cc; color: white; border: none; cursor: pointer;">+ Участник</button>
+                    <button id="remove-user-btn" class="hidden" onclick="removeUserFromChat()" style="padding: 5px 10px; font-size: 12px; background-color: #dc3545; color: white; border: none; cursor: pointer;">- Участник</button>
+                </div>
+            </div>
+            
+            <div id="search-container" class="hidden" style="padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #ddd; display: flex; gap: 10px;">
+                <input type="text" id="search-input" placeholder="Поиск по истории..." style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                <button onclick="searchMessages()" style="padding: 5px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Найти</button>
+                <button onclick="clearSearch()" style="padding: 5px 15px; background: transparent; border: 1px solid #6c757d; color: black; border-radius: 4px; cursor: pointer;">Сбросить</button>
+            </div>
+
+            <div id="messages-container" class="messages-container">
+            </div>
+
+            <div class="message-input-area">
+                <input type="text" id="message-text" placeholder="Введите сообщение..." disabled>
+                <button id="send-btn" onclick="sendMessage()" disabled>Отправить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=1.0"></script>
+</body>
+</html>

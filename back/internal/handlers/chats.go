@@ -10,6 +10,7 @@ type ChatResponse struct {
 	ID      int    `json:"id"`
 	Name    string `json:"name"`
 	IsGroup bool   `json:"is_group"`
+	IsAdmin bool   `json:"is_admin"`
 }
 
 func GetChats(db *sql.DB) http.HandlerFunc {
@@ -17,7 +18,7 @@ func GetChats(db *sql.DB) http.HandlerFunc {
 		userID := r.Context().Value("user_id").(float64)
 
 		query := `
-			SELECT c.id, COALESCE(c.name, 'Личный чат') as name, c.is_group 
+			SELECT c.id, COALESCE(c.name, 'Личный чат') as name, c.is_group, cm.is_admin
 			FROM chats c
 			JOIN chat_members cm ON c.id = cm.chat_id
 			WHERE cm.user_id = $1
@@ -33,7 +34,7 @@ func GetChats(db *sql.DB) http.HandlerFunc {
 		var chats []ChatResponse
 		for rows.Next() {
 			var chat ChatResponse
-			if err := rows.Scan(&chat.ID, &chat.Name, &chat.IsGroup); err != nil {
+			if err := rows.Scan(&chat.ID, &chat.Name, &chat.IsGroup, &chat.IsAdmin); err != nil {
 				continue
 			}
 			chats = append(chats, chat)
