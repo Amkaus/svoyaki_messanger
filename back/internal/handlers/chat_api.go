@@ -45,6 +45,7 @@ func CreateChat(db *sql.DB) http.HandlerFunc {
 
 type MessageResponse struct {
 	ID        int    `json:"id"`
+	ChatID    int    `json:"chat_id"`
 	SenderID  int    `json:"sender_id"`
 	Content   string `json:"content"`
 	CreatedAt string `json:"created_at"`

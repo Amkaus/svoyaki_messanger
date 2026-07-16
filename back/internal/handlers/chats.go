@@ -18,11 +18,21 @@ func GetChats(db *sql.DB) http.HandlerFunc {
 		userID := r.Context().Value("user_id").(float64)
 
 		query := `
-			SELECT c.id, COALESCE(c.name, 'Личный чат') as name, c.is_group, cm.is_admin
-			FROM chats c
-			JOIN chat_members cm ON c.id = cm.chat_id
-			WHERE cm.user_id = $1
-		`
+		SELECT c.id, 
+			CASE 
+				WHEN c.is_group THEN c.name 
+				ELSE (
+					SELECT u.username 
+					FROM users u 
+					JOIN chat_members cm2 ON u.id = cm2.user_id 
+					WHERE cm2.chat_id = c.id AND u.id != $1 
+					LIMIT 1
+				)
+			END as name,
+			c.is_group, cm.is_admin
+		FROM chats c
+		JOIN chat_members cm ON c.id = cm.chat_id
+		WHERE cm.user_id = $1`
 		
 		rows, err := db.Query(query, int(userID))
 		if err != nil {
