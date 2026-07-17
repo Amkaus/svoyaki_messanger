@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: messenger_user
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: messenger_db
+    ports:
+      - "5433:5432"
